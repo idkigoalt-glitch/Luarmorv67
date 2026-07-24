@@ -1,83 +1,87 @@
-const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const compression = require('compression');
-const helmet = require('helmet');
-const cors = require('cors');
+const express = require("express");
+const fs = require("fs");
+const path = require("path");
 
+const app = express();
 const PORT = process.env.PORT || 3000;
-const WINDOW_MS = Number(process.env.RATE_WINDOW) || 15 * 60 * 1000;
-const MAX_REQUESTS = Number(process.env.RATE_MAX) || 100;
-const CACHE_TTL = Number(process.env.CACHE_TTL) || 60 * 1000;
-const SCRIPT_PATH = path.join(__dirname, 'scripts', 'script.lua');
+
+const hits = new Map();
+const WINDOW = 15 * 60 * 1000;
+const MAX = 100;
 
 // --- Rate Limiter ---
-class SlidingWindowRateLimiter {
-  constructor(windowMs, maxRequests) {
-    this.windowMs = windowMs;
-    this.maxRequests = maxRequests;
-    this.store = new Map();
+function rateLimiter(req, res, next) {
+  const ip =
+    req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
+    req.socket.remoteAddress ||
+    "?";
+  const now = Date.now();
+  const r = hits.get(ip);
+  if (!r || now - r.start > WINDOW) {
+    hits.set(ip, { count: 1, start: now });
+    return next();
   }
-  check(ip) {
-    const now = Date.now();
-    const record = this.store.get(ip) || { timestamps: [] };
-    const windowStart = now - this.windowMs;
-    record.timestamps = record.timestamps.filter(t => t > windowStart);
-    if (record.timestamps.length >= this.maxRequests) {
-      const oldest = record.timestamps[0];
-      const retryAfter = Math.ceil((oldest + this.windowMs - now) / 1000);
-      return { allowed: false, retryAfter: Math.max(retryAfter, 1) };
-    }
-    record.timestamps.push(now);
-    this.store.set(ip, record);
-    return { allowed: true };
+  r.count++;
+  if (r.count > MAX) {
+    const retry = Math.ceil((WINDOW - (now - r.start)) / 1000);
+    res.set("Retry-After", String(retry));
+    return res.status(429).type("text").send("Too many requests");
   }
-  cleanup() {
-    const now = Date.now();
-    for (const [ip, record] of this.store) {
-      const windowStart = now - this.windowMs;
-      record.timestamps = record.timestamps.filter(t => t > windowStart);
-      if (record.timestamps.length === 0) this.store.delete(ip);
-    }
-  }
+  next();
 }
 
-const limiter = new SlidingWindowRateLimiter(WINDOW_MS, MAX_REQUESTS);
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, r] of hits) {
+    if (now - r.start > WINDOW) hits.delete(ip);
+  }
+}, 5 * 60 * 1000);
+
+// --- Garantir que o script.lua existe ---
+const SCRIPT_PATH = path.join(__dirname, "scripts", "script.lua");
+function ensureScript() {
+  const dir = path.dirname(SCRIPT_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  if (!fs.existsSync(SCRIPT_PATH)) {
+    const defaultScript = `-- Script padrão (criado automaticamente)
+print("🚀 Script carregado com sucesso!")
+
+local function saudacao(nome)
+    return "Olá, " .. nome .. "! 🌌"
+end
+
+return {
+    saudacao = saudacao,
+    versao = "1.0.0"
+}
+`;
+    fs.writeFileSync(SCRIPT_PATH, defaultScript, "utf-8");
+    console.log("✅ Script padrão criado em:", SCRIPT_PATH);
+  }
+}
+ensureScript();
 
 // --- Cache do script ---
-class ScriptCache {
-  constructor(filePath, ttl) {
-    this.filePath = filePath;
-    this.ttl = ttl;
-    this.cache = null;
-    this.etag = null;
-    this.lastModified = null;
-    this.timestamp = 0;
-  }
-  get() {
-    const now = Date.now();
-    if (this.cache && (now - this.timestamp) < this.ttl) {
-      return { script: this.cache, etag: this.etag, lastModified: this.lastModified };
-    }
-    try {
-      const stats = fs.statSync(this.filePath);
-      const script = fs.readFileSync(this.filePath, 'utf-8');
-      this.cache = script;
-      this.etag = `"${Buffer.from(script).length.toString(16)}-${stats.mtimeMs.toString(16)}"`;
-      this.lastModified = stats.mtime.toUTCString();
-      this.timestamp = now;
-      return { script: this.cache, etag: this.etag, lastModified: this.lastModified };
-    } catch {
-      return null;
-    }
+let cache = null;
+let cacheTime = 0;
+const CACHE_TTL = 60 * 1000;
+
+function getScript() {
+  const now = Date.now();
+  if (cache && now - cacheTime < CACHE_TTL) return cache;
+  try {
+    cache = fs.readFileSync(SCRIPT_PATH, "utf-8");
+    cacheTime = now;
+    return cache;
+  } catch {
+    return null;
   }
 }
 
-const scriptCache = new ScriptCache(SCRIPT_PATH, CACHE_TTL);
-
-// --- Página de bloqueio (tema azul espacial com emojis) ---
-const BLOCKED_PAGE = `
-<!DOCTYPE html>
+// --- Página de bloqueio (tema azul espacial) ---
+const BLOCKED_PAGE = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -164,7 +168,6 @@ const BLOCKED_PAGE = `
   <div class="emoji-bg" style="bottom:8%;right:3%;animation-duration:16s;">🌠</div>
   <div class="emoji-bg" style="top:30%;right:10%;font-size:4rem;animation-duration:14s;">🪐</div>
   <div class="emoji-bg" style="bottom:30%;left:6%;font-size:5rem;animation-duration:18s;">☄️</div>
-
   <div class="card">
     <div class="emoji-row">🌌 🌠 🪐 ☄️</div>
     <h1>BLOCKED</h1>
@@ -178,179 +181,50 @@ const BLOCKED_PAGE = `
     <div class="small">✨ Protected by Luarmor • 2026</div>
   </div>
 </body>
-</html>
-`;
+</html>`;
 
-// --- Middleware de bloqueio (CORRIGIDO: permite Roblox) ---
-function blockBrowsersAndBots(req, res, next) {
-  const ua = req.headers['user-agent'] || '';
+// --- Middleware de bloqueio (permite Roblox) ---
+function blockBrowsers(req, res, next) {
+  const ua = req.headers["user-agent"] || "";
   const uaLower = ua.toLowerCase();
 
-  // ✅ Permite explicitamente o Roblox
-  if (uaLower.includes('roblox')) {
+  // ✅ Permite Roblox
+  if (uaLower.includes("roblox")) {
     return next();
   }
 
-  const blockedPatterns = [
-    /chrome\//i, /firefox\//i, /safari\//i, /edge\//i, /opr\//i,
-    /trident\//i, /mozilla/i,
-    /curl/i, /wget/i, /python-requests/i, /postman/i, /insomnia/i,
-    /httpie/i, /scrapy/i, /go-http-client/i
-  ];
-  if (blockedPatterns.some(p => p.test(uaLower))) {
-    return res.status(403).type('html').send(BLOCKED_PAGE);
+  const isBrowser =
+    (uaLower.includes("chrome/") ||
+     uaLower.includes("firefox/") ||
+     uaLower.includes("safari/") ||
+     uaLower.includes("edge/") ||
+     uaLower.includes("opr/") ||
+     uaLower.includes("trident/")) &&
+    uaLower.includes("mozilla");
+  if (isBrowser) {
+    return res.status(403).type("html").send(BLOCKED_PAGE);
   }
   next();
 }
 
-// --- Rate limiter middleware ---
-function rateLimiterMiddleware(req, res, next) {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() ||
-             req.socket.remoteAddress ||
-             'unknown';
-  const result = limiter.check(ip);
-  if (!result.allowed) {
-    res.set('Retry-After', String(result.retryAfter));
-    return res.status(429).type('text').send(`⏳ Too many requests. Retry after ${result.retryAfter}s.`);
+// --- Rotas ---
+app.get("/get-script", rateLimiter, blockBrowsers, (req, res) => {
+  try {
+    const script = getScript();
+    if (!script) {
+      return res.status(500).type("text").send("❌ Script unavailable");
+    }
+    res.type("text").send(script);
+  } catch {
+    res.status(500).type("text").send("❌ Script no disponible");
   }
-  next();
-}
-
-// --- Inicialização do Express ---
-const app = express();
-app.use(compression());
-app.use(helmet());
-app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '1kb' }));
-
-// Rota health
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    time: new Date().toISOString(),
-    cacheSize: scriptCache.cache ? Buffer.byteLength(scriptCache.cache, 'utf-8') : 0,
-    rateLimit: { window: WINDOW_MS, max: MAX_REQUESTS }
-  });
 });
 
-// --- Rota /get-script (agora com suporte a Roblox) ---
-app.get('/get-script',
-  rateLimiterMiddleware,
-  blockBrowsersAndBots,
-  (req, res) => {
-    const cached = scriptCache.get();
-    if (!cached) {
-      return res.status(500).type('text').send('❌ Script unavailable');
-    }
-    // Se o cliente mandar Accept: application/json, retorna JSON
-    if (req.accepts('json')) {
-      return res.json({ script: cached.script, etag: cached.etag });
-    }
-    // Senão, exibe página HTML bonita com o script
-    const escaped = cached.script.replace(/[&<>"]/g, function(m) {
-      if (m === '&') return '&amp;';
-      if (m === '<') return '&lt;';
-      if (m === '>') return '&gt;';
-      if (m === '"') return '&quot;';
-      return m;
-    });
-    res.type('html').send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>📜 Script</title>
-        <style>
-          body {
-            background: radial-gradient(circle at center, #0b1a2e, #030712);
-            color: #c8d6e5;
-            font-family: 'Fira Code', 'Courier New', monospace;
-            padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 0;
-          }
-          .container {
-            max-width: 900px;
-            width: 100%;
-            background: rgba(16, 36, 60, 0.7);
-            backdrop-filter: blur(8px);
-            border-radius: 24px;
-            padding: 30px 20px;
-            border: 1px solid rgba(100, 180, 255, 0.2);
-            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.8);
-          }
-          .header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(100, 180, 255, 0.15);
-          }
-          .header h2 {
-            font-size: 1.4rem;
-            background: linear-gradient(135deg, #64b5f6, #1e88e5);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-weight: 500;
-            letter-spacing: 1px;
-          }
-          pre {
-            background: rgba(3, 10, 25, 0.7);
-            padding: 20px;
-            border-radius: 14px;
-            overflow-x: auto;
-            font-size: 0.9rem;
-            line-height: 1.6;
-            color: #b0d0e8;
-            border: 1px solid rgba(100, 180, 255, 0.08);
-            white-space: pre-wrap;
-            word-break: break-all;
-          }
-          .footer {
-            margin-top: 14px;
-            font-size: 0.8rem;
-            color: #4a6f8f;
-            text-align: right;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <span style="font-size:1.8rem;">🌌</span>
-            <h2>Script Lua</h2>
-            <span style="margin-left:auto;font-size:1.4rem;">🌠</span>
-          </div>
-          <pre>${escaped}</pre>
-          <div class="footer">🪐 Protected • ${new Date().toISOString().slice(0,10)}</div>
-        </div>
-      </body>
-      </html>
-    `);
-  }
-);
-
-// Rota para recarregar cache (admin)
-app.post('/reload-script', (req, res) => {
-  scriptCache.timestamp = 0;
-  const cached = scriptCache.get();
-  if (cached) res.json({ status: 'reloaded', size: Buffer.byteLength(cached.script, 'utf-8') });
-  else res.status(500).json({ error: 'Failed to reload' });
-});
-
-// Limpeza periódica do rate limiter
-setInterval(() => limiter.cleanup(), 60 * 1000);
-
-// Tratamento de erros global
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).type('text').send('💥 Internal Server Error');
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", time: new Date().toISOString() });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 King Free API (Luarmor style) running on port ${PORT}`);
+  console.log(`🚀 King Free API corriendo en puerto ${PORT}`);
+  console.log(`📁 Script path: ${SCRIPT_PATH}`);
 });
