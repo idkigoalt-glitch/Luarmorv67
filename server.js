@@ -181,10 +181,16 @@ const BLOCKED_PAGE = `
 </html>
 `;
 
-// --- Middleware de bloqueio (com os mesmos padrões) ---
+// --- Middleware de bloqueio (CORRIGIDO: permite Roblox) ---
 function blockBrowsersAndBots(req, res, next) {
   const ua = req.headers['user-agent'] || '';
   const uaLower = ua.toLowerCase();
+
+  // ✅ Permite explicitamente o Roblox
+  if (uaLower.includes('roblox')) {
+    return next();
+  }
+
   const blockedPatterns = [
     /chrome\//i, /firefox\//i, /safari\//i, /edge\//i, /opr\//i,
     /trident\//i, /mozilla/i,
@@ -227,7 +233,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// --- Rota /get-script com visual bonito (mas ainda bloqueia navegadores) ---
+// --- Rota /get-script (agora com suporte a Roblox) ---
 app.get('/get-script',
   rateLimiterMiddleware,
   blockBrowsersAndBots,
