@@ -9,7 +9,6 @@ const hits = new Map();
 const WINDOW = 15 * 60 * 1000;
 const MAX = 100;
 
-// --- Rate Limiter ---
 function rateLimiter(req, res, next) {
   const ip =
     req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
@@ -37,33 +36,6 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-// --- Garantir que o script.lua existe ---
-const SCRIPT_PATH = path.join(__dirname, "scripts", "script.lua");
-function ensureScript() {
-  const dir = path.dirname(SCRIPT_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(SCRIPT_PATH)) {
-    const defaultScript = `-- Script padrão (criado automaticamente)
-print("🚀 Script carregado com sucesso!")
-
-local function saudacao(nome)
-    return "Olá, " .. nome .. "! 🌌"
-end
-
-return {
-    saudacao = saudacao,
-    versao = "1.0.0"
-}
-`;
-    fs.writeFileSync(SCRIPT_PATH, defaultScript, "utf-8");
-    console.log("✅ Script padrão criado em:", SCRIPT_PATH);
-  }
-}
-ensureScript();
-
-// --- Cache do script ---
 let cache = null;
 let cacheTime = 0;
 const CACHE_TTL = 60 * 1000;
@@ -71,16 +43,13 @@ const CACHE_TTL = 60 * 1000;
 function getScript() {
   const now = Date.now();
   if (cache && now - cacheTime < CACHE_TTL) return cache;
-  try {
-    cache = fs.readFileSync(SCRIPT_PATH, "utf-8");
-    cacheTime = now;
-    return cache;
-  } catch {
-    return null;
-  }
+  const filePath = path.join(__dirname, "scripts", "script.lua");
+  cache = fs.readFileSync(filePath, "utf-8");
+  cacheTime = now;
+  return cache;
 }
 
-// --- Página de bloqueio (tema azul espacial) ---
+// ========== NOVA PÁGINA DE BLOQUEIO (tema azul espacial) ==========
 const BLOCKED_PAGE = `<!DOCTYPE html>
 <html>
 <head>
@@ -183,16 +152,10 @@ const BLOCKED_PAGE = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// --- Middleware de bloqueio (permite Roblox) ---
+// ========== BLOQUEIO ORIGINAL (sem permissão para Roblox) ==========
 function blockBrowsers(req, res, next) {
   const ua = req.headers["user-agent"] || "";
   const uaLower = ua.toLowerCase();
-
-  // ✅ Permite Roblox
-  if (uaLower.includes("roblox")) {
-    return next();
-  }
-
   const isBrowser =
     (uaLower.includes("chrome/") ||
      uaLower.includes("firefox/") ||
@@ -207,16 +170,11 @@ function blockBrowsers(req, res, next) {
   next();
 }
 
-// --- Rotas ---
 app.get("/get-script", rateLimiter, blockBrowsers, (req, res) => {
   try {
-    const script = getScript();
-    if (!script) {
-      return res.status(500).type("text").send("❌ Script unavailable");
-    }
-    res.type("text").send(script);
+    res.type("text").send(getScript());
   } catch {
-    res.status(500).type("text").send("❌ Script no disponible");
+    res.status(500).type("text").send("Script no disponible");
   }
 });
 
@@ -225,6 +183,5 @@ app.get("/health", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 King Free API corriendo en puerto ${PORT}`);
-  console.log(`📁 Script path: ${SCRIPT_PATH}`);
+  console.log(`King Free API corriendo en puerto ${PORT}`);
 });
