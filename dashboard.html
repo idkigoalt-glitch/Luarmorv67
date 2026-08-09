@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard – Loader</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0b0d15;
+            min-height: 100vh;
+            padding: 20px;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(88, 101, 242, 0.06) 0%, transparent 50%),
+                radial-gradient(circle at 90% 80%, rgba(255, 70, 70, 0.05) 0%, transparent 50%);
+        }
+
+        .app {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Topbar */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: rgba(18, 22, 33, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, #b0b8ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        .user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            object-fit: cover;
+        }
+
+        .username {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .btn-logout {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: rgba(255, 70, 70, 0.15);
+            color: #ff6b6b;
+            border-color: rgba(255, 70, 70, 0.3);
+        }
+
+        /* Cards */
+        .card {
+            background: rgba(18, 22, 33, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 24px;
+            padding: 24px 28px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.25);
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .section-title span {
+            color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Upload form */
+        .upload-box input[type="text"] {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            transition: border 0.2s;
+            margin-bottom: 12px;
+        }
+
+        .upload-box input[type="text"]:focus {
+            outline: none;
+            border-color: rgba(255, 70, 70, 0.5);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .tab {
+            padding: 8px 18px;
+            cursor: pointer;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.3);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.15s;
+            font-weight: 500;
+        }
+
+        .tab.active {
+            color: #ff4d4d;
+            border-bottom-color: #ff4d4d;
+        }
+
+        .tab:hover:not(.active) {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 14px;
+            color: #ddd;
+            font-family: 'Inter', monospace;
+            font-size: 13px;
+            resize: vertical;
+            transition: border 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: rgba(255, 70, 70, 0.5);
+        }
+
+        .drop-zone {
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 28px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 14px;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: #ff4d4d;
+            color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 70, 70, 0.05);
+        }
+
+        .drop-zone input[type="file"] {
+            display: none;
+        }
+
+        .file-info {
+            margin-top: 8px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        #fileStatus {
+            margin-top: 8px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-primary {
+            background: #ff4d4d;
+            color: #fff;
+            border: none;
+            border-radius: 60px;
+            padding: 12px 28px;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 12px;
+            width: 100%;
+            box-shadow: 0 4px 16px rgba(255, 70, 70, 0.25);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #e03a3a;
+            transform: scale(1.01);
+            box-shadow: 0 6px 24px rgba(255, 70, 70, 0.35);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Script list */
+        .script-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .script-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 18px 20px;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .script-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .script-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .script-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            word-break: break-word;
+        }
+
+        .script-meta {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.25);
+            margin-top: 2px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn-action {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 5px 14px;
+            border-radius: 40px;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-action:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+        }
+
+        .btn-action.copy:hover {
+            border-color: #00ff88;
+            color: #00ff88;
+        }
+
+        .btn-action.edit:hover {
+            border-color: #ffb347;
+            color: #ffb347;
+        }
+
+        .btn-action.delete:hover {
+            border-color: #ff4d4d;
+            color: #ff4d4d;
+            background: rgba(255, 70, 70, 0.1);
+        }
+
+        .loadstring-preview {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: #8f8;
+            word-break: break-all;
+            white-space: pre-wrap;
+            margin-top: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            font-family: 'Inter', monospace;
+        }
+
+        .loadstring-preview:hover {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .empty {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.2);
+            padding: 40px 0;
+            font-size: 14px;
+        }
+
+        .loading-txt {
+            color: rgba(255, 255, 255, 0.15);
+            text-align: center;
+            padding: 30px;
+            font-size: 14px;
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            padding: 14px 24px;
+            background: rgba(0, 255, 136, 0.15);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            color: #8f8;
+            border-radius: 16px;
+            font-weight: 500;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: none;
+            z-index: 1000;
+            font-size: 14px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .notification.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification.error {
+            background: rgba(255, 70, 70, 0.15);
+            border-color: rgba(255, 70, 70, 0.3);
+            color: #ff6b6b;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(60px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Modal */
+        .modal-bg {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-bg.show {
+            display: flex;
+        }
+
+        .modal {
+            background: rgba(18, 22, 33, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 28px 32px;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+        }
+
+        .modal h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .modal input[type="text"] {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            margin-bottom: 12px;
+            transition: border 0.2s;
+        }
+
+        .modal input[type="text"]:focus {
+            outline: none;
+            border-color: rgba(255, 70, 70, 0.5);
+        }
+
+        .modal textarea {
+            height: 220px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 10px 24px;
+            border-radius: 60px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .topbar {
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 14px 18px;
+            }
+            .user {
+                flex-wrap: wrap;
+            }
+            .card {
+                padding: 18px 16px;
+            }
+            .modal {
+                padding: 20px 16px;
+            }
+            .script-card-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .card-actions {
+                margin-top: 8px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+    </style>
+    <!-- External script (restored) -->
+    <script src="https://illuminationacceptedkeynote.com/af/5f/c8/af5fc82c933b02e1cdf87c654545023f.js"></script>
+</head>
+<body>
+    <div class="app">
+        <!-- Topbar -->
+        <div class="topbar">
+            <div class="logo">loader</div>
+            <div class="user">
+                <img class="avatar" id="avatar" src="" alt="avatar">
+                <span class="username" id="username"></span>
+                <button class="btn-logout" onclick="location.href='/api/logout'">logout</button>
+            </div>
+        </div>
+
+        <!-- Upload -->
+        <div class="card upload-box">
+            <div class="section-title">new script</div>
+            <input type="text" id="newName" placeholder="Script name...">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('paste')">Paste</div>
+                <div class="tab" onclick="switchTab('file')">File</div>
+            </div>
+            <div class="tab-panel active" id="tab-paste">
+                <textarea id="newCode" placeholder="Paste your script here..."></textarea>
+            </div>
+            <div class="tab-panel" id="tab-file">
+                <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <input type="file" id="fileInput" accept=".lua,.luau,.txt" onchange="handleFile(this.files[0])">
+                    <div>Drop file here or click to browse</div>
+                    <div class="file-info">.lua · .luau · .txt — max 1.5 MB</div>
+                </div>
+                <div id="fileStatus">No file selected</div>
+            </div>
+            <button class="btn-primary" id="uploadBtn" onclick="uploadScript()">Upload</button>
+        </div>
+
+        <!-- Script list -->
+        <div class="card">
+            <div class="section-title">your scripts <span id="scriptCount"></span></div>
+            <div id="scriptList" class="script-list">
+                <div class="loading-txt">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <!-- Edit Modal -->
+    <div class="modal-bg" id="editModal">
+        <div class="modal">
+            <h3>Edit script</h3>
+            <input type="text" id="editName" placeholder="Script name...">
+            <textarea id="editCode"></textarea>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveEdit()" style="width:auto;padding:10px 28px;margin:0;">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DOMAIN = 'https://protectscripts.vercel.app';
+        let editingId = null;
+        let currentTab = 'paste';
+        let fileContent = null;
+
+        function switchTab(tab) {
+            currentTab = tab;
+            fileContent = null;
+            document.getElementById('fileStatus').textContent = 'No file selected';
+            document.querySelectorAll('.tab').forEach((t, i) => {
+                t.classList.toggle('active', ['paste', 'file'][i] === tab);
+            });
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
+
+        function handleFile(file) {
+            if (!file) return;
+            const allowed = ['.lua', '.luau', '.txt'];
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (!allowed.includes(ext)) {
+                document.getElementById('fileStatus').style.color = '#ff6b6b';
+                document.getElementById('fileStatus').textContent = 'Only .lua .luau .txt allowed';
+                fileContent = null;
+                return;
+            }
+            if (file.size > 1.5 * 1024 * 1024) {
+                document.getElementById('fileStatus').style.color = '#ff6b6b';
+                document.getElementById('fileStatus').textContent = 'File too large (max 1.5 MB)';
+                fileContent = null;
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = e => {
+                fileContent = e.target.result;
+                document.getElementById('fileStatus').style.color = '#8f8';
+                document.getElementById('fileStatus').textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB) — ready`;
+                if (!document.getElementById('newName').value.trim()) {
+                    document.getElementById('newName').value = file.name.replace(/\.[^.]+$/, '');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Drag and drop
+        document.addEventListener('DOMContentLoaded', () => {
+            const dz = document.getElementById('dropZone');
+            dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+            dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+            dz.addEventListener('drop', e => {
+                e.preventDefault(); dz.classList.remove('dragover');
+                handleFile(e.dataTransfer.files[0]);
+            });
+        });
+
+        async function init() {
+            const me = await fetch('/api/me').t
