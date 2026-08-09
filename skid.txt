@@ -1,0 +1,208 @@
+game:GetService('StarterGui'):SetCore('SendNotification', {
+    Title = 'script',
+    Text = 'loading done',
+    Duration = 0.8
+});
+
+local HttpService = game:GetService('HttpService');
+local genv = getgenv();
+local _warn = warn
+local _error = error
+genv["STOP TRYING THIS"] = "caught ya"
+
+print("================")
+print("thanks for using my website!. luarmor v67")   -- Nome alterado aqui
+print("================")
+
+
+if not genv.script_id then
+    game:GetService('Players').LocalPlayer:Kick('nice try skid');
+    _error('nice try skid');
+    return 'shit'; 
+end;
+local mt = getrawmetatable(game);
+local old = mt.__namecall;
+if old ~= nil then
+    local info = debug.getinfo(old);
+    if info and info.what ~= 'C' then
+        game:GetService('Players').LocalPlayer:Kick('nice try skid');
+        _error('nice try skid');
+        return 'shit'; 
+    end;
+    local ok_nc = pcall(function()
+        local info2 = debug.getinfo(old, 'u');
+        if info2 and info2.nups ~= 0 then
+            error();
+        end;
+    end);
+    if not ok_nc then
+        game:GetService('Players').LocalPlayer:Kick('nice try skid');
+        _error('nice try skid');
+        return 'shit';
+    end;
+end;
+local ok = pcall(function()
+    local info = debug.getinfo(game.HttpGet, 'S');
+    if info and info.what ~= 'C' then
+        error(); 
+    end;
+    local info2 = debug.getinfo(game.HttpGet, 'u');
+    if info2 and info2.nups ~= 0 then
+        error(); 
+    end; 
+end);
+if not ok then
+    game:GetService('Players').LocalPlayer:Kick('nice try skid');
+    _error('nice try skid');
+    return 'shit'; 
+end;
+local ok_ls = pcall(function()
+    local info = debug.getinfo(loadstring, 'S');
+    if info and info.what ~= 'C' then
+        error('????????'); 
+    end; 
+end);
+if not ok_ls then
+    game:GetService('Players').LocalPlayer:Kick('nice try skid');
+    _error('nice try skid');
+    return 'shit'; 
+end;
+local ok_up = pcall(function()
+    local info = debug.getinfo(loadstring, 'u');
+    if info and info.nups ~= 0 then
+        error('?????'); 
+    end; 
+end);
+if not ok_up then
+    game:GetService('Players').LocalPlayer:Kick('nice try skid');
+    _error('nice try skid');
+    return 'shit'; 
+end;
+local ok_req = pcall(function()
+    local info = debug.getinfo(request, 'S');
+    if info and info.what ~= 'C' then
+        error();
+    end;
+    local info2 = debug.getinfo(request, 'u');
+    if info2 and info2.nups ~= 0 then
+        error();
+    end;
+end);
+if not ok_req then
+    game:GetService('Players').LocalPlayer:Kick('nice try skid');
+    _error('nice try skid');
+    return 'shit';
+end;
+
+-- CHAVE ORIGINAL RESTAURADA
+local SECRET = 'kh3n_s3cr3t_x0r_k3y_2024';   -- Voltei para a antiga
+
+local function computeSig(id)
+    local out = {};
+    for i = 1, #id do
+        local b = bit32.bxor(id:byte(i), SECRET:byte((i - 1) % #SECRET + 1));
+        out[#out + 1] = string.format('%02x', b);
+    end;
+    return table.concat(out);
+end;
+local B87 = '.CDJMHOfYQIPkL8X2y$h!gbqUaj6di9Rl(wm0sur4<vpoz#[nt;1S)e>&^c?KVE-A~_/@:*xW3+5=|7%NTG]FBZ';
+local function decodeBase87(s)
+    local out = {};
+    local i = 1;
+    while i <= #s do
+        local chunk = s:sub(i, i + 4);
+        local pad = 5 - #chunk;
+        local val = 0;
+        for j = 1, #chunk do
+            local c = B87:find(chunk:sub(j, j), 1, true);
+            if not c then
+                error('invalid.'); 
+            end;
+            val = val * 87 + c - 1; 
+        end;
+        val = val * 87 ^ pad;
+        for k = 3, 0, -1 do
+            if k < 4 - pad then
+                table.insert(out, string.char(math.floor(val / 256 ^ k) % 256)); 
+            end; 
+        end;
+        i = i + 5; 
+    end;
+    return table.concat(out); 
+end;
+local function notifyError(reasonMsg)
+    game:GetService('StarterGui'):SetCore('SendNotification', {
+        Title = 'script',
+        Text = reasonMsg,
+        Duration = 5
+    });
+end
+
+local REASON_MESSAGES = {
+    deleted = 'this script has been deleted or is no longer valid.',
+    invalid_sig = 'verification failed. please rejoin and try again.',
+    token_expired = 'session expired. please run the script again.',
+    rate_limited = 'too many requests. please wait a moment and try again.',
+    invalid_request = 'invalid request. please run the script again.',
+    server_error = 'server error. please try again in a moment.'
+}
+
+local function getErrorMessage(res)
+    if not res then
+        return 'could not connect to the server. check your connection and try again.'
+    end
+    local ok, body = pcall(function() return HttpService:JSONDecode(res.Body) end)
+    if ok and body and body.reason and REASON_MESSAGES[body.reason] then
+        return REASON_MESSAGES[body.reason]
+    end
+    return 'this script has been deleted or is no longer valid.'
+end
+
+local sig = computeSig(genv.script_id);
+local tokenRes;
+pcall(function()
+    tokenRes = request({
+        Url = 'https://protectscripts.vercel.app/api/auth?script_id=' .. genv.script_id,
+        Method = 'GET',
+        Headers = {
+            ['Accept'] = 'application/json',
+            ['X-Sig'] = sig
+        }
+    }); 
+end);
+if not tokenRes or not tokenRes.Body or tokenRes.StatusCode ~= 200 then
+    notifyError(getErrorMessage(tokenRes));
+    _warn("xd token: " .. tostring(tokenRes and tokenRes.StatusCode or "nil"))
+    return
+end
+
+local ok2, parsed = pcall(function() return HttpService:JSONDecode(tokenRes.Body) end)
+if not ok2 or not parsed or not parsed.token then
+    notifyError('unexpected response from the server. please try again.');
+    _warn("xd parse fail")
+    return
+end
+
+local ok3, decoded = pcall(function() return decodeBase87(parsed.token) end)
+if not ok3 or not decoded then
+    notifyError('unexpected response from the server. please try again.');
+    _warn("xd decode fail")
+    return
+end
+local codeRes;
+pcall(function()
+    codeRes = request({
+        Url = 'https://protectscripts.vercel.app/api/loader?token=' .. decoded,
+        Method = 'GET',
+        Headers = {
+            ['Accept'] = 'application/json',
+            ['X-Sig'] = sig
+        }
+    }); 
+end);
+if not codeRes or not codeRes.Body or codeRes.StatusCode ~= 200 then
+    notifyError(getErrorMessage(codeRes));
+    _warn("xd code: " .. tostring(codeRes and codeRes.StatusCode or "nil"))
+    return
+end
+loadstring(codeRes.Body)();
