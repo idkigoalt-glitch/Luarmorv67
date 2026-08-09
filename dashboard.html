@@ -642,4 +642,158 @@
         });
 
         async function init() {
-            const me = await fetch('/api/me').t
+            const me = await fetch('/api/me').then(r => r.json());
+            if (me.error) { location.href = '/'; return; }
+            document.getElementById('username').textContent = me.username;
+            if (me.avatar) {
+                document.getElementById('avatar').src = `https://cdn.discordapp.com/avatars/${me.discord_id}/${me.avatar}.png`;
+            } else {
+                document.getElementById('avatar').style.display = 'none';
+            }
+            loadScripts();
+        }
+
+        async function loadScripts() {
+            const list = document.getElementById('scriptList');
+            let data;
+            try {
+                data = await fetch('/api/scripts').then(r => r.json());
+            } catch (e) {
+                list.innerHTML = '<div class="empty">failed to load, refresh the page</div>';
+                return;
+            }
+            if (data.error) {
+                list.innerHTML = '<div class="empty">error: ' + data.error + '</div>';
+                return;
+            }
+            if (!data.scripts || data.scripts.length === 0) {
+                list.innerHTML = '<div class="empty">no scripts yet</div>';
+                document.getElementById('scriptCount').textContent = '0/16';
+                return;
+            }
+            data.scripts.sort((a, b) => (b.created || 0) - (a.created || 0));
+            const count = data.scripts.length;
+            document.getElementById('scriptCount').textContent = count + '/16';
+            if (count >= 16) {
+                document.getElementById('uploadBtn').disabled = true;
+                document.getElementById('uploadBtn').title = 'max 16 scripts reached';
+            } else {
+                document.getElementById('uploadBtn').disabled = false;
+                document.getElementById('uploadBtn').title = '';
+            }
+            list.innerHTML = data.scripts.map(s => {
+                const loadstring = `getgenv().script_id = "${s.id}"\nloadstring(game:HttpGet("${DOMAIN}/skid.txt"))()`;
+                const date = s.created ? new Date(s.created).toLocaleDateString() : '';
+                const kb = s.size ? (s.size / 1024).toFixed(1) + ' kb' : '';
+                return `<div class="script-card" id="card-${s.id}">
+                    <div class="script-card-header">
+                        <div>
+                            <div class="script-name">${escHtml(s.name)}</div>
+                            <div class="script-meta">${date}${kb ? ' · ' + kb : ''}</div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn-copy" onclick="copyLoadstring('${s.id}')">copy</button>
+                            <button class="btn-edit" onclick="openEdit('${s.id}', \`${escJs(s.name)}\`)">edit</button>
+                            <button class="btn-del" onclick="deleteScript('${s.id}')">delete</button>
+                        </div>
+                    </div>
+                    <div class="loadstring-preview" onclick="copyLoadstring('${s.id}')" id="ls-${s.id}">${escHtml(loadstring)}</div>
+                </div>`;
+            }).join('');
+        }
+
+        async function uploadScript() {
+            const name = document.getElementById('newName').value.trim() || 'untitled';
+            let content;
+            if (currentTab === 'paste') {
+                content = document.getElementById('newCode').value.trim();
+                if (!content) { showNotif('paste code first!', true); return; }
+            } else {
+                if (!fileContent) { showNotif('pick a file first!', true); return; }
+                content = fileContent;
+            }
+            const btn = document.getElementById('uploadBtn');
+            btn.disabled = true; btn.textContent = 'uploading...';
+            let data;
+            try {
+                data = await fetch('/api/scripts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, name })
+                }).then(r => r.json());
+            } catch (e) {
+                btn.disabled = false; btn.textContent = 'upload';
+                showNotif('network error!', true); return;
+            }
+            btn.disabled = false; btn.textContent = 'upload';
+            if (data.success) {
+                document.getElementById('newCode').value = '';
+                document.getElementById('newName').value = '';
+                document.getElementById('fileStatus').textContent = '';
+                fileContent = null;
+                showNotif('uploaded!', false);
+                loadScripts();
+            } else {
+                showNotif((data.error || 'unknown error'), true);
+            }
+        }
+
+        async function deleteScript(id) {
+            if (!confirm('delete this script?')) return;
+            const data = await fetch('/api/scripts', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ script_id: id })
+            }).then(r => r.json());
+            if (data.success) { showNotif('deleted', false); loadScripts(); }
+            else showNotif('error', true);
+        }
+
+        async function openEdit(id, name) {
+            editingId = id;
+            document.getElementById('editName').value = name;
+            const content = await fetch(`/api/script-content?id=${id}`).then(r => r.text());
+            document.getElementById('editCode').value = content;
+            document.getElementById('editModal').classList.add('show');
+        }
+
+        function closeModal() {
+            editingId = null;
+            document.getElementById('editModal').classList.remove('show');
+        }
+
+        async function saveEdit() {
+            const name = document.getElementById('editName').value.trim();
+            const content = document.getElementById('editCode').value.trim();
+            if (!content) { showNotif('no content', true); return; }
+            if (content.length > 1.5 * 1024 * 1024) { showNotif('too large (max 1.5mb)', true); return; }
+            const data = await fetch('/api/scripts', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ script_id: editingId, content, name })
+            }).then(r => r.json());
+            if (data.success) { closeModal(); showNotif('saved!', false); loadScripts(); }
+            else showNotif('error', true);
+        }
+
+        function copyLoadstring(id) {
+            const text = document.getElementById('ls-' + id).textContent;
+            navigator.clipboard.writeText(text);
+            showNotif('copied!', false);
+        }
+
+        function showNotif(msg, isErr) {
+            const n = document.getElementById('notification');
+            n.textContent = msg;
+            n.classList.toggle('error', isErr);
+            n.classList.add('show');
+            setTimeout(() => n.classList.remove('show'), 3000);
+        }
+
+        function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function escJs(s) { return String(s).replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$'); }
+
+        init();
+    </script>
+</body>
+</html>
