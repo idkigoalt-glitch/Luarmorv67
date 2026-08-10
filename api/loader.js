@@ -49,5 +49,27 @@ min-height:100vh;display:flex;align-items:center;justify-content:center}</style>
     }
     if (!content) return json({ error: 'Not valid token.', reason: 'deleted' }, 403);
 
+    // ============================================================
+    // 🆕 NOVO HEADER ADICIONADO AUTOMATICAMENTE A TODOS OS SCRIPTS
+    // ============================================================
+    const header = `-- This file was protected using Luraph Obfuscator v14.9 [https://lura.ph/]\n`;
+    content = header + content;
+
+    return new Response(content, { status: 200, headers: { 'Content-Type': 'text/plain' } });
+}    const script_id = await kv.getdel(`token:${token}`);
+    if (!script_id) return json({ error: 'Not valid token.', reason: 'token_expired' }, 403);
+
+    const sig = req.headers.get('x-sig');
+    if (!sig || sig !== computeSig(script_id)) return json({ error: 'Not valid token.', reason: 'invalid_sig' }, 403);
+
+    let content;
+    try {
+        content = await kv.get(`script:${script_id}`);
+    } catch (err) {
+        console.error('[loader.js] kv error:', err);
+        return json({ error: 'Server error.', reason: 'server_error' }, 500);
+    }
+    if (!content) return json({ error: 'Not valid token.', reason: 'deleted' }, 403);
+
     return new Response(content, { status: 200, headers: { 'Content-Type': 'text/plain' } });
                                     }
